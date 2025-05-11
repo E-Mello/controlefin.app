@@ -1,3 +1,5 @@
+// Path: app/responsive-page.tsx
+
 // Substituir todo o conteúdo do arquivo page.tsx pelo componente responsivo
 import ResponsivePage from "./responsive-page"
 

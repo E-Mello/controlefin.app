@@ -1,3 +1,5 @@
+// Path: components/transaction-list.tsx
+
 "use client"
 
 import { useState, useEffect } from "react"
