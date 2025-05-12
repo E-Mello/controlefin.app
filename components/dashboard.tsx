@@ -1,3 +1,5 @@
+// Path: components/dashboard.tsx
+
 "use client";
 
 import { useState, useEffect } from "react";

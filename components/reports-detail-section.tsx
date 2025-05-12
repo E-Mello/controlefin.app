@@ -1,3 +1,5 @@
+// Path: components/reports-detail-section.tsx
+
 "use client";
 
 import { formatCurrency, formatDate } from "@/lib/utils";

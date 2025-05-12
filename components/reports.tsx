@@ -1328,7 +1328,7 @@ export default function Reports({ transactions }: ReportsProps) {
 
               <h3 className="text-lg font-medium mt-8">Detalhamento por Mês</h3>
               {Object.entries(
-                sortedYearlyTransactions.reduce<Record<string, Transaction[]>>(
+                sortedYearlyTransactions.reduce<Record<string, Conta[]>>(
                   (acc, transaction) => {
                     const month = new Date(transaction.date).getMonth();
                     const monthName = [
@@ -1637,24 +1637,25 @@ export default function Reports({ transactions }: ReportsProps) {
               </div>
 
               {Object.entries(
-                sortedDateRangeTransactions.reduce<
-                  Record<string, Transaction[]>
-                >((acc, transaction) => {
-                  try {
-                    const dateKey = formatDate(transaction.date);
-                    if (!acc[dateKey]) {
-                      acc[dateKey] = [];
+                sortedDateRangeTransactions.reduce<Record<string, Conta[]>>(
+                  (acc, transaction) => {
+                    try {
+                      const dateKey = formatDate(transaction.date);
+                      if (!acc[dateKey]) {
+                        acc[dateKey] = [];
+                      }
+                      acc[dateKey].push(transaction);
+                    } catch (error) {
+                      // Se houver erro ao formatar a data, agrupar em "Data inválida"
+                      if (!acc["Data inválida"]) {
+                        acc["Data inválida"] = [];
+                      }
+                      acc["Data inválida"].push(transaction);
                     }
-                    acc[dateKey].push(transaction);
-                  } catch (error) {
-                    // Se houver erro ao formatar a data, agrupar em "Data inválida"
-                    if (!acc["Data inválida"]) {
-                      acc["Data inválida"] = [];
-                    }
-                    acc["Data inválida"].push(transaction);
-                  }
-                  return acc;
-                }, {})
+                    return acc;
+                  },
+                  {}
+                )
               ).map(([dateKey, transactions]) => (
                 <ReportDetailSection
                   key={dateKey}
