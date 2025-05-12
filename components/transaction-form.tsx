@@ -225,7 +225,7 @@ export default function TransactionForm({
           </div>
           <div>
             <Label htmlFor="date" className={errors.date ? "text-red-500" : ""}>
-              Data {errors.date && `(${errors.date})`}
+              Data de vencimento{errors.date && `(${errors.date})`}
             </Label>
             <DateInput
               id="date"
