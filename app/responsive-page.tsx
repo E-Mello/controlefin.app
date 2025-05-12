@@ -9,39 +9,74 @@ import Reports from "@/components/reports";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import type { GetContasResponse } from "@/types/contas";
+import type { GetContasResponse, CreateContaResponse } from "@/types/contas";
 
 export default function ResponsivePage() {
   const router = useRouter();
-  const [transactions, setTransactions] = useState<GetContasResponse>([]);
 
-  // Busca inicial de transações do backend
+  // lista de transações
+  const [transactions, setTransactions] = useState<GetContasResponse>([]);
+  // transação que estamos editando (ou null pra criar nova)
+  const [editingTransaction, setEditingTransaction] =
+    useState<CreateContaResponse | null>(null);
+  // aba ativa: "list" | "add" | "reports"
+  const [tabValue, setTabValue] = useState<"list" | "add" | "reports">("list");
+
+  // carrega no mount e sempre que tabValue volta pra list
+  const fetchData = async () => {
+    const dados = await getContas();
+    setTransactions(dados);
+  };
   useEffect(() => {
-    getContas().then(setTransactions);
+    fetchData();
   }, []);
 
-  // Callback para exclusão
+  // excluir
   const handleDelete = async (id: string) => {
     await deleteConta(id);
-    // Recarrega os dados do servidor
-    const updated = await getContas();
-    setTransactions(updated);
+    await fetchData();
     router.refresh();
   };
 
-  // Callback para criação/edição
+  // editar: seta a transação e vai para aba "add"
+  const handleEdit = (tx: CreateContaResponse) => {
+    setEditingTransaction(tx);
+    setTabValue("add");
+  };
+
+  // callback ao criar ou atualizar: limpa edição e volta pra list
   const handleAddOrEdit = async () => {
-    const updated = await getContas();
-    setTransactions(updated);
+    await fetchData();
+    setEditingTransaction(null);
+    setTabValue("list");
     router.refresh();
+  };
+
+  // cancelar edição volta pra list
+  const handleCancelEdit = () => {
+    setEditingTransaction(null);
+    setTabValue("list");
+  };
+
+  // handler to ensure value is of correct type
+  const handleTabValueChange = (value: string) => {
+    if (value === "list" || value === "add" || value === "reports") {
+      setTabValue(value);
+    }
   };
 
   return (
     <main className="container mx-auto px-3 py-3 md:p-6">
-      <Tabs defaultValue="list" className="w-full">
+      <Tabs
+        value={tabValue}
+        onValueChange={handleTabValueChange}
+        className="w-full"
+      >
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="list">Livro Caixa</TabsTrigger>
-          <TabsTrigger value="add">Novo</TabsTrigger>
+          <TabsTrigger value="add">
+            {editingTransaction ? "Editar" : "Novo"}
+          </TabsTrigger>
           <TabsTrigger value="reports">Relatórios</TabsTrigger>
         </TabsList>
 
@@ -49,11 +84,7 @@ export default function ResponsivePage() {
           <TransactionList
             transactions={transactions}
             onDelete={handleDelete}
-            onEdit={() => {
-              /* se quiser navegar para aba “add” com dados de edição,
-                 pode setar um estado `editingTransaction` aqui */
-              router.refresh();
-            }}
+            onEdit={handleEdit}
             activeTab="list"
           />
         </TabsContent>
@@ -61,8 +92,8 @@ export default function ResponsivePage() {
         <TabsContent value="add" className="mt-4">
           <TransactionForm
             onAddTransaction={handleAddOrEdit}
-            editingTransaction={null}
-            onCancelEdit={handleAddOrEdit}
+            editingTransaction={editingTransaction}
+            onCancelEdit={handleCancelEdit}
           />
         </TabsContent>
 

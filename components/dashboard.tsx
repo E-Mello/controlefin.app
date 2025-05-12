@@ -49,11 +49,17 @@ export default function Dashboard() {
           <TransactionList
             transactions={transactions}
             onDelete={deleteTransaction}
+            onEdit={() => {}}
+            activeTab="transactions"
           />
         </TabsContent>
 
         <TabsContent value="add">
-          <TransactionForm onAddTransaction={addTransaction} />
+          <TransactionForm
+            onAddTransaction={addTransaction}
+            editingTransaction={null}
+            onCancelEdit={() => {}}
+          />
         </TabsContent>
 
         <TabsContent value="reports">
