@@ -23,7 +23,6 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { formatCurrency, formatDate } from "@/lib/utils";
 import {
   Pencil,
   Trash2,
@@ -47,6 +46,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { Conta } from "@/types/contas";
+import { formatCurrency } from "@/lib/utils";
 
 type FiltroTipo = "Todas" | "A Receber" | "A Pagar";
 
@@ -64,7 +64,6 @@ export default function TransactionList({
   activeTab,
 }: TransactionListProps) {
   const [search, setSearch] = useState("");
-  const [typeFilter, setTypeFilter] = useState<FiltroTipo>("Todas");
   const [yearFilter, setYearFilter] = useState<string>(
     new Date().getFullYear().toString()
   );
@@ -80,35 +79,37 @@ export default function TransactionList({
   const [activeTypeTab, setActiveTypeTab] = useState<FiltroTipo>("Todas");
   const [prevActiveTab, setPrevActiveTab] = useState<string>(activeTab);
 
-  // Escolhe chave de data dinamicamente
+  // Define qual propriedade usar para filtro/ordenação de data
   const dateKey = sortColumn === "emissao" ? "data_emissao" : "data_vencimento";
 
-  // Reset para mês corrente ao mudar de aba
-  useEffect(() => {
-    if (activeTab === "list" && prevActiveTab !== "list") {
-      resetToCurrentMonth();
-    }
-    setPrevActiveTab(activeTab);
-  }, [activeTab, prevActiveTab]);
+  // Função para formatar "YYYY-MM-DD" em "DD/MM/YYYY" sem fuso
+  // no topo do arquivo, em vez da versão antiga:
+  const formatISOtoBR = (iso: string) => {
+    // pega só a parte da data (antes do 'T')
+    const dateOnly = iso.split("T")[0];
+    const [year, month, day] = dateOnly.split("-");
+    return `${day}/${month}/${year}`;
+  };
 
-  // Inicializa filtros
-  useEffect(() => {
-    resetToCurrentMonth();
-  }, []);
-
+  // Reseta filtros para o mês corrente
   const resetToCurrentMonth = () => {
     const now = new Date();
     const y = now.getFullYear().toString();
     const m = (now.getMonth() + 1).toString().padStart(2, "0");
     setYearFilter(y);
     setMonthFilter(m);
-    setTypeFilter("Todas");
     setActiveTypeTab("Todas");
     setSearch("");
-    const first = new Date(now.getFullYear(), now.getMonth(), 1);
-    const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    setStartDate(first.toISOString().split("T")[0]);
-    setEndDate(last.toISOString().split("T")[0]);
+    const first = `${y}-${m}-01`;
+    const lastDay = new Date(
+      now.getFullYear(),
+      now.getMonth() + 1,
+      0
+    ).getDate();
+    const last = `${y}-${m}-${lastDay.toString().padStart(2, "0")}`;
+    setStartDate(first);
+    setEndDate(last);
+
     const meses = [
       "Janeiro",
       "Fevereiro",
@@ -126,19 +127,36 @@ export default function TransactionList({
     toast(`Exibindo lançamentos de ${meses[now.getMonth()]} de ${y}.`);
   };
 
-  // Atualiza intervalo quando ano/mês mudam
+  // Efeitos de inicialização e troca de aba
+  useEffect(() => {
+    resetToCurrentMonth();
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === "list" && prevActiveTab !== "list") {
+      resetToCurrentMonth();
+    }
+    setPrevActiveTab(activeTab);
+  }, [activeTab, prevActiveTab]);
+
+  // Atualiza intervalo sempre que ano ou mês mudam
   useEffect(() => {
     if (yearFilter !== "all" && monthFilter !== "all") {
-      const yy = parseInt(yearFilter);
-      const mm = parseInt(monthFilter) - 1;
-      const first = new Date(yy, mm, 1);
-      const last = new Date(yy, mm + 1, 0);
-      setStartDate(first.toISOString().split("T")[0]);
-      setEndDate(last.toISOString().split("T")[0]);
+      const first = `${yearFilter}-${monthFilter}-01`;
+      const lastDay = new Date(
+        parseInt(yearFilter),
+        parseInt(monthFilter),
+        0
+      ).getDate();
+      const last = `${yearFilter}-${monthFilter}-${lastDay
+        .toString()
+        .padStart(2, "0")}`;
+      setStartDate(first);
+      setEndDate(last);
     }
   }, [yearFilter, monthFilter]);
 
-  // Dialog de exclusão
+  // Exclusão
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [toDelete, setToDelete] = useState<Conta | null>(null);
 
@@ -155,21 +173,23 @@ export default function TransactionList({
     }
   };
 
+  // Edição
   const handleEdit = (tx: Conta) => {
     onEdit(tx);
     toast("Atualize os detalhes no formulário.");
   };
 
+  // Controle de ordenação
   const toggleSort = (col: typeof sortColumn) => {
     if (sortColumn === col) {
-      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+      setSortDirection((d) => (d === "asc" ? "desc" : "asc"));
     } else {
       setSortColumn(col);
       setSortDirection("asc");
     }
   };
 
-  // Anos disponíveis, com base na chave dinâmica
+  // Calcula anos disponíveis com base na chave dinâmica
   const availableYears = Array.from(
     new Set(
       transactions.map((t) =>
@@ -178,16 +198,16 @@ export default function TransactionList({
     )
   ).sort((a, b) => parseInt(b) - parseInt(a));
 
-  // Filtra pelo tipo selecionado na aba
+  // Filtra por tipo
   const filterByTab = (arr: Conta[]) => {
     if (activeTypeTab === "A Receber")
       return arr.filter((t) => t.tipo === "A Receber");
     if (activeTypeTab === "A Pagar")
       return arr.filter((t) => t.tipo === "A Pagar");
-    return arr; // Todas
+    return arr;
   };
 
-  // Filtros combinados usando dateKey
+  // Aplica todos os filtros (busca, ano, mês, intervalo)
   const filtered = filterByTab(
     transactions
       .filter((t) => t.descricao.toLowerCase().includes(search.toLowerCase()))
@@ -206,24 +226,19 @@ export default function TransactionList({
       )
       .filter((t) => {
         const dt = new Date((t as any)[dateKey]);
-        let ok = true;
-        if (startDate) ok = ok && dt >= new Date(startDate);
-        if (endDate) {
-          const e = new Date(endDate);
-          e.setHours(23, 59, 59, 999);
-          ok = ok && dt <= e;
-        }
-        return ok;
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        return dt >= start && dt <= end;
       })
   );
 
-  // Ordenação simplificada, sem subtração dupla
+  // Ordena de acordo com a coluna selecionada
   const sorted = [...filtered].sort((a, b) => {
     const dir = sortDirection === "asc" ? 1 : -1;
     if (sortColumn === "vencimento" || sortColumn === "emissao") {
-      const timeA = new Date((a as any)[dateKey]).getTime();
-      const timeB = new Date((b as any)[dateKey]).getTime();
-      return dir * (timeA - timeB);
+      const ta = new Date((a as any)[dateKey]).getTime();
+      const tb = new Date((b as any)[dateKey]).getTime();
+      return dir * (ta - tb);
     }
     if (sortColumn === "descricao")
       return dir * a.descricao.localeCompare(b.descricao);
@@ -235,12 +250,13 @@ export default function TransactionList({
   // Totais
   const totalIn = sorted
     .filter((t) => t.tipo === "A Receber")
-    .reduce((s, t) => s + t.valor, 0);
+    .reduce((sum, t) => sum + t.valor, 0);
   const totalOut = sorted
     .filter((t) => t.tipo === "A Pagar")
-    .reduce((s, t) => s + t.valor, 0);
+    .reduce((sum, t) => sum + t.valor, 0);
   const balance = totalIn - totalOut;
 
+  // Nome curto de meses para o select
   const getMonthName = (m: string) => {
     const ms = [
       "Jan",
@@ -263,19 +279,17 @@ export default function TransactionList({
     <>
       <div className="space-y-4">
         {/* Cabeçalho */}
-        <div className="flex flex-col md:flex-row justify-between items-center">
-          <div className="flex items-center">
-            <BookOpen className="h-6 w-6 mr-2 text-primary" />
-            <h2 className="text-2xl font-bold">Livro Caixa</h2>
-          </div>
+        <div className="flex items-center justify-between">
+          <BookOpen className="h-6 w-6 text-primary" />
+          <h2 className="text-2xl font-bold">Livro Caixa</h2>
         </div>
 
-        {/* Cartões de resumo */}
+        {/* Resumo */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card className="border-green-200">
-            <CardContent className="p-4 flex items-center justify-between">
+            <CardContent className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-green-800">Entradas</p>
+                <p className="text-sm text-green-800">Entradas</p>
                 <p className="text-2xl font-bold text-green-600">
                   {formatCurrency(totalIn)}
                 </p>
@@ -284,9 +298,9 @@ export default function TransactionList({
             </CardContent>
           </Card>
           <Card className="border-red-200">
-            <CardContent className="p-4 flex items-center justify-between">
+            <CardContent className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-red-800">Saídas</p>
+                <p className="text-sm text-red-800">Saídas</p>
                 <p className="text-2xl font-bold text-red-600">
                   {formatCurrency(totalOut)}
                 </p>
@@ -297,10 +311,10 @@ export default function TransactionList({
           <Card
             className={balance >= 0 ? "border-blue-200" : "border-amber-200"}
           >
-            <CardContent className="p-4 flex items-center justify-between">
+            <CardContent className="flex items-center justify-between">
               <div>
                 <p
-                  className={`text-sm font-medium ${
+                  className={`text-sm ${
                     balance >= 0 ? "text-blue-800" : "text-amber-800"
                   }`}
                 >
@@ -326,10 +340,10 @@ export default function TransactionList({
         </div>
 
         {/* Filtros */}
-        <div className="flex flex-col md:flex-row justify-between gap-4">
+        <div className="flex flex-col md:flex-row gap-4">
           <Tabs
             value={activeTypeTab}
-            onValueChange={(value) => setActiveTypeTab(value as FiltroTipo)}
+            onValueChange={(v) => setActiveTypeTab(v as FiltroTipo)}
             className="w-full md:w-1/3"
           >
             <TabsList className="grid grid-cols-3">
@@ -339,9 +353,9 @@ export default function TransactionList({
             </TabsList>
           </Tabs>
 
-          <div className="flex gap-2 flex-wrap md:flex-nowrap">
+          <div className="flex gap-2">
             <Select value={yearFilter} onValueChange={setYearFilter}>
-              <SelectTrigger className="h-9 w-24">
+              <SelectTrigger className="w-24 h-9">
                 <SelectValue>{yearFilter}</SelectValue>
               </SelectTrigger>
               <SelectContent>
@@ -358,19 +372,18 @@ export default function TransactionList({
               onValueChange={setMonthFilter}
               disabled={yearFilter === "all"}
             >
-              <SelectTrigger className="h-9 w-24">
+              <SelectTrigger className="w-24 h-9">
                 <SelectValue>{getMonthName(monthFilter)}</SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todas</SelectItem>
-                {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => {
-                  const mm = m.toString().padStart(2, "0");
-                  return (
-                    <SelectItem key={mm} value={mm}>
-                      {getMonthName(mm)}
-                    </SelectItem>
-                  );
-                })}
+                {Array.from({ length: 12 }, (_, i) =>
+                  (i + 1).toString().padStart(2, "0")
+                ).map((m) => (
+                  <SelectItem key={m} value={m}>
+                    {getMonthName(m)}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
             <Button
@@ -393,18 +406,10 @@ export default function TransactionList({
           </div>
         </div>
 
-        {/* Período exibido */}
-        {(yearFilter !== "all" || monthFilter !== "all") && (
-          <p className="text-sm text-muted-foreground">
-            Período: {yearFilter === "all" ? "Todos anos" : yearFilter}
-            {yearFilter !== "all" && ` - ${getMonthName(monthFilter)}`}
-          </p>
-        )}
-
         {/* Tabela */}
         {sorted.length > 0 ? (
           <Card>
-            <CardContent className="p-0 overflow-x-auto">
+            <CardContent className="overflow-x-auto p-0">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -413,8 +418,7 @@ export default function TransactionList({
                       className="cursor-pointer"
                     >
                       <div className="flex items-center">
-                        Vencimento
-                        <ArrowDownUp className="ml-1 h-3 w-3" />
+                        Vencimento <ArrowDownUp className="ml-1 h-3 w-3" />
                       </div>
                     </TableHead>
                     <TableHead
@@ -422,8 +426,7 @@ export default function TransactionList({
                       className="cursor-pointer"
                     >
                       <div className="flex items-center">
-                        Emissão
-                        <ArrowDownUp className="ml-1 h-3 w-3" />
+                        Emissão <ArrowDownUp className="ml-1 h-3 w-3" />
                       </div>
                     </TableHead>
                     <TableHead
@@ -441,14 +444,15 @@ export default function TransactionList({
                     <TableHead className="text-center">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
+
                 <TableBody>
                   {sorted.map((tx) => (
                     <TableRow key={tx.id}>
                       <TableCell className="font-medium">
-                        {formatDate(tx.data_vencimento)}
+                        {formatISOtoBR(tx.data_vencimento)}
                       </TableCell>
                       <TableCell className="font-medium">
-                        {formatDate(tx.data_emissao)}
+                        {formatISOtoBR(tx.data_emissao)}
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-col">
