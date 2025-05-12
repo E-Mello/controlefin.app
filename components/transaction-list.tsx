@@ -80,6 +80,9 @@ export default function TransactionList({
   const [activeTypeTab, setActiveTypeTab] = useState<FiltroTipo>("Todas");
   const [prevActiveTab, setPrevActiveTab] = useState<string>(activeTab);
 
+  // Escolhe chave de data dinamicamente
+  const dateKey = sortColumn === "emissao" ? "data_emissao" : "data_vencimento";
+
   // Reset para mês corrente ao mudar de aba
   useEffect(() => {
     if (activeTab === "list" && prevActiveTab !== "list") {
@@ -166,11 +169,11 @@ export default function TransactionList({
     }
   };
 
-  // Anos disponíveis
+  // Anos disponíveis, com base na chave dinâmica
   const availableYears = Array.from(
     new Set(
       transactions.map((t) =>
-        new Date(t.data_vencimento).getFullYear().toString()
+        new Date((t as any)[dateKey]).getFullYear().toString()
       )
     )
   ).sort((a, b) => parseInt(b) - parseInt(a));
@@ -181,28 +184,28 @@ export default function TransactionList({
       return arr.filter((t) => t.tipo === "A Receber");
     if (activeTypeTab === "A Pagar")
       return arr.filter((t) => t.tipo === "A Pagar");
-    // "Todas"
-    return arr;
+    return arr; // Todas
   };
 
-  // Filtros combinados
+  // Filtros combinados usando dateKey
   const filtered = filterByTab(
     transactions
       .filter((t) => t.descricao.toLowerCase().includes(search.toLowerCase()))
       .filter((t) =>
         yearFilter === "all"
           ? true
-          : new Date(t.data_vencimento).getFullYear().toString() === yearFilter
+          : new Date((t as any)[dateKey]).getFullYear().toString() ===
+            yearFilter
       )
       .filter((t) =>
         monthFilter === "all"
           ? true
-          : (new Date(t.data_vencimento).getMonth() + 1)
+          : (new Date((t as any)[dateKey]).getMonth() + 1)
               .toString()
               .padStart(2, "0") === monthFilter
       )
       .filter((t) => {
-        const dt = new Date(t.data_vencimento);
+        const dt = new Date((t as any)[dateKey]);
         let ok = true;
         if (startDate) ok = ok && dt >= new Date(startDate);
         if (endDate) {
@@ -214,29 +217,19 @@ export default function TransactionList({
       })
   );
 
-  // Ordenação
+  // Ordenação simplificada, sem subtração dupla
   const sorted = [...filtered].sort((a, b) => {
     const dir = sortDirection === "asc" ? 1 : -1;
-    switch (sortColumn) {
-      case "vencimento":
-        return (
-          dir *
-          (new Date(a.data_vencimento).getTime() -
-            new Date(b.data_vencimento).getTime())
-        );
-      case "emissao":
-        return (
-          dir *
-          (new Date(a.data_emissao).getTime() -
-            new Date(b.data_emissao).getTime())
-        );
-      case "descricao":
-        return dir * a.descricao.localeCompare(b.descricao);
-      case "tipo":
-        return dir * a.tipo.localeCompare(b.tipo);
-      case "valor":
-        return dir * (a.valor - b.valor);
+    if (sortColumn === "vencimento" || sortColumn === "emissao") {
+      const timeA = new Date((a as any)[dateKey]).getTime();
+      const timeB = new Date((b as any)[dateKey]).getTime();
+      return dir * (timeA - timeB);
     }
+    if (sortColumn === "descricao")
+      return dir * a.descricao.localeCompare(b.descricao);
+    if (sortColumn === "tipo") return dir * a.tipo.localeCompare(b.tipo);
+    if (sortColumn === "valor") return dir * (a.valor - b.valor);
+    return 0;
   });
 
   // Totais
