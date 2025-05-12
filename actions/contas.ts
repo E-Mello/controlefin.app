@@ -1,6 +1,8 @@
 // Path: app/actions/contas.ts
 "use server";
 
+import { CreateContaRequest, CreateContaResponse } from "@/types/contas";
+
 export const getContas = async () => {
   const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/contas/`, {
     method: "GET",
@@ -34,12 +36,10 @@ export const getConta = async (contaId: string) => {
   return response.json();
 };
 
-export const createConta = async (conta: {
-  tipo: string;
-  descricao: string;
-  valor: number;
-  data_vencimento: string;
-}) => {
+export const createConta = async (
+  conta: CreateContaRequest
+): Promise<CreateContaResponse> => {
+  console.log("conta", conta);
   const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/contas/`, {
     method: "POST",
     headers: {

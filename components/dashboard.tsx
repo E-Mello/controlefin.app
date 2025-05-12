@@ -1,36 +1,36 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import TransactionForm from "./transaction-form"
-import TransactionList from "./transaction-list"
-import Reports from "./reports"
-import Summary from "./summary"
-import type { Transaction } from "@/lib/types"
+import { useState, useEffect } from "react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import TransactionForm from "./transaction-form";
+import TransactionList from "./transaction-list";
+import Reports from "./reports";
+import Summary from "./summary";
+import { Conta } from "@/types/contas";
 
 export default function Dashboard() {
-  const [transactions, setTransactions] = useState<Transaction[]>([])
+  const [transactions, setTransactions] = useState<Conta[]>([]);
 
   // Carregar transações do localStorage ao iniciar
   useEffect(() => {
-    const savedTransactions = localStorage.getItem("transactions")
+    const savedTransactions = localStorage.getItem("transactions");
     if (savedTransactions) {
-      setTransactions(JSON.parse(savedTransactions))
+      setTransactions(JSON.parse(savedTransactions));
     }
-  }, [])
+  }, []);
 
   // Salvar transações no localStorage quando houver mudanças
   useEffect(() => {
-    localStorage.setItem("transactions", JSON.stringify(transactions))
-  }, [transactions])
+    localStorage.setItem("transactions", JSON.stringify(transactions));
+  }, [transactions]);
 
-  const addTransaction = (transaction: Transaction) => {
-    setTransactions([...transactions, transaction])
-  }
+  const addTransaction = (transaction: Conta) => {
+    setTransactions([...transactions, transaction]);
+  };
 
   const deleteTransaction = (id: string) => {
-    setTransactions(transactions.filter((t) => t.id !== id))
-  }
+    setTransactions(transactions.filter((t) => t.id !== id));
+  };
 
   return (
     <div className="space-y-6">
@@ -44,7 +44,10 @@ export default function Dashboard() {
         </TabsList>
 
         <TabsContent value="transactions">
-          <TransactionList transactions={transactions} onDelete={deleteTransaction} />
+          <TransactionList
+            transactions={transactions}
+            onDelete={deleteTransaction}
+          />
         </TabsContent>
 
         <TabsContent value="add">
@@ -56,5 +59,5 @@ export default function Dashboard() {
         </TabsContent>
       </Tabs>
     </div>
-  )
+  );
 }

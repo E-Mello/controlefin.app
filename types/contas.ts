@@ -3,7 +3,7 @@
 // Tipo para Conta
 export interface Conta {
   id: string;
-  tipo: string;
+  tipo: "A Pagar" | "A Receber";
   descricao: string;
   valor: number;
   data_vencimento: string;

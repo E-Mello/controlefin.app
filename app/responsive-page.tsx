@@ -1,93 +1,68 @@
 // Path: app/responsive-page.tsx
 
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import TransactionForm from "@/components/transaction-form"
-import TransactionList from "@/components/transaction-list"
-import Reports from "@/components/reports"
-import { generateMockData } from "@/lib/mock-data"
-import { Toaster } from "@/components/ui/toaster"
-import type { Transaction } from "@/lib/types"
+import { getContas, deleteConta } from "@/actions/contas";
+import TransactionList from "@/components/transaction-list";
+import TransactionForm from "@/components/transaction-form";
+import Reports from "@/components/reports";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import type { GetContasResponse } from "@/types/contas";
 
 export default function ResponsivePage() {
-  const [transactions, setTransactions] = useState<Transaction[]>([])
-  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null)
-  const [activeTab, setActiveTab] = useState("list")
+  const router = useRouter();
+  const [transactions, setTransactions] = useState<GetContasResponse>([]);
 
-  // Carregar transações do localStorage ao iniciar
+  // Busca inicial de transações do backend
   useEffect(() => {
-    const savedTransactions = localStorage.getItem("transactions")
-    if (savedTransactions) {
-      setTransactions(JSON.parse(savedTransactions))
-    } else {
-      // Adicionar dados de exemplo
-      const mockData = generateMockData()
-      setTransactions(mockData)
-      localStorage.setItem("transactions", JSON.stringify(mockData))
-    }
-  }, [])
+    getContas().then(setTransactions);
+  }, []);
 
-  // Salvar transações no localStorage quando houver mudanças
-  useEffect(() => {
-    localStorage.setItem("transactions", JSON.stringify(transactions))
-  }, [transactions])
+  // Callback para exclusão
+  const handleDelete = async (id: string) => {
+    await deleteConta(id);
+    // Recarrega os dados do servidor
+    const updated = await getContas();
+    setTransactions(updated);
+    router.refresh();
+  };
 
-  const addTransaction = (transaction: Transaction) => {
-    if (editingTransaction) {
-      // Atualizar transação existente
-      setTransactions(
-        transactions.map((t) => (t.id === transaction.id ? { ...transaction, createdAt: t.createdAt } : t)),
-      )
-      setEditingTransaction(null)
-    } else {
-      // Adicionar nova transação
-      setTransactions([...transactions, transaction])
-    }
-
-    // Voltar para a aba de listagem após salvar
-    setActiveTab("list")
-  }
-
-  const deleteTransaction = (id: string) => {
-    setTransactions(transactions.filter((t) => t.id !== id))
-    if (editingTransaction && editingTransaction.id === id) {
-      setEditingTransaction(null)
-    }
-  }
-
-  const editTransaction = (transaction: Transaction) => {
-    setEditingTransaction(transaction)
-    setActiveTab("add")
-  }
+  // Callback para criação/edição
+  const handleAddOrEdit = async () => {
+    const updated = await getContas();
+    setTransactions(updated);
+    router.refresh();
+  };
 
   return (
     <main className="container mx-auto px-3 py-3 md:p-6">
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+      <Tabs defaultValue="list" className="w-full">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="list">Livro Caixa</TabsTrigger>
-          <TabsTrigger value="add">{editingTransaction ? "Editar" : "Novo"}</TabsTrigger>
+          <TabsTrigger value="add">Novo</TabsTrigger>
           <TabsTrigger value="reports">Relatórios</TabsTrigger>
         </TabsList>
 
         <TabsContent value="list" className="mt-4">
           <TransactionList
             transactions={transactions}
-            onDelete={deleteTransaction}
-            onEdit={editTransaction}
-            activeTab={activeTab}
+            onDelete={handleDelete}
+            onEdit={() => {
+              /* se quiser navegar para aba “add” com dados de edição,
+                 pode setar um estado `editingTransaction` aqui */
+              router.refresh();
+            }}
+            activeTab="list"
           />
         </TabsContent>
 
         <TabsContent value="add" className="mt-4">
           <TransactionForm
-            onAddTransaction={addTransaction}
-            editingTransaction={editingTransaction}
-            onCancelEdit={() => {
-              setEditingTransaction(null)
-              setActiveTab("list")
-            }}
+            onAddTransaction={handleAddOrEdit}
+            editingTransaction={null}
+            onCancelEdit={handleAddOrEdit}
           />
         </TabsContent>
 
@@ -95,8 +70,6 @@ export default function ResponsivePage() {
           <Reports transactions={transactions} />
         </TabsContent>
       </Tabs>
-
-      <Toaster />
     </main>
-  )
+  );
 }
