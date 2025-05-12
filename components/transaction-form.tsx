@@ -3,7 +3,7 @@
 "use client";
 import { createConta, updateConta } from "@/actions/contas";
 import { useState, useEffect } from "react";
-import { toast } from "@/components/ui/use-toast";
+import { toast } from "sonner";
 import {
   Card,
   CardContent,
@@ -97,12 +97,7 @@ export default function TransactionForm({
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!validateForm()) {
-      toast({
-        title: "Erro ao salvar",
-        description: "Por favor, corrija os campos destacados.",
-        variant: "destructive",
-        duration: 2000,
-      });
+      toast("Por favor, corrija os campos destacados.");
       return;
     }
     const payload: CreateContaRequest = {
@@ -115,16 +110,11 @@ export default function TransactionForm({
       const result = editingTransaction
         ? await updateConta(editingTransaction.id, payload)
         : await createConta(payload);
-      toast({
-        title: editingTransaction
-          ? "Lançamento atualizado"
-          : "Lançamento adicionado",
-        description: `${description} ${
+      toast(
+        `${description} ${
           editingTransaction ? "atualizado" : "adicionado"
-        } com sucesso.`,
-        variant: "default",
-        duration: 2000,
-      });
+        } com sucesso.`
+      );
       onAddTransaction(result);
       setDescription("");
       setAmount("");
@@ -133,12 +123,7 @@ export default function TransactionForm({
       setDate(new Date().toISOString().split("T")[0]);
       setErrors({});
     } catch {
-      toast({
-        title: "Erro ao salvar",
-        description: "Erro ao criar ou atualizar a conta no banco de dados.",
-        variant: "destructive",
-        duration: 2000,
-      });
+      toast("Erro ao criar ou atualizar a conta no banco de dados.");
     }
   };
 

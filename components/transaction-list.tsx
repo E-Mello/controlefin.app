@@ -45,8 +45,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { toast } from "@/components/ui/use-toast";
+import { toast } from "sonner";
 import { Conta } from "@/types/contas";
+
+type FiltroTipo = "Todas" | "A Receber" | "A Pagar";
 
 interface TransactionListProps {
   transactions: Conta[];
@@ -62,9 +64,7 @@ export default function TransactionList({
   activeTab,
 }: TransactionListProps) {
   const [search, setSearch] = useState("");
-  const [typeFilter, setTypeFilter] = useState<"all" | "A Receber" | "A Pagar">(
-    "all"
-  );
+  const [typeFilter, setTypeFilter] = useState<FiltroTipo>("Todas");
   const [yearFilter, setYearFilter] = useState<string>(
     new Date().getFullYear().toString()
   );
@@ -77,12 +77,10 @@ export default function TransactionList({
     "vencimento" | "emissao" | "descricao" | "tipo" | "valor"
   >("vencimento");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
-  const [activeTypeTab, setActiveTypeTab] = useState<
-    "all" | "income" | "expense"
-  >("all");
+  const [activeTypeTab, setActiveTypeTab] = useState<FiltroTipo>("Todas");
   const [prevActiveTab, setPrevActiveTab] = useState<string>(activeTab);
 
-  // Reset to current month on tab change
+  // Reset para mês corrente ao mudar de aba
   useEffect(() => {
     if (activeTab === "list" && prevActiveTab !== "list") {
       resetToCurrentMonth();
@@ -90,7 +88,7 @@ export default function TransactionList({
     setPrevActiveTab(activeTab);
   }, [activeTab, prevActiveTab]);
 
-  // Initialize filters on mount
+  // Inicializa filtros
   useEffect(() => {
     resetToCurrentMonth();
   }, []);
@@ -101,14 +99,14 @@ export default function TransactionList({
     const m = (now.getMonth() + 1).toString().padStart(2, "0");
     setYearFilter(y);
     setMonthFilter(m);
-    setTypeFilter("all");
-    setActiveTypeTab("all");
+    setTypeFilter("Todas");
+    setActiveTypeTab("Todas");
     setSearch("");
     const first = new Date(now.getFullYear(), now.getMonth(), 1);
     const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
     setStartDate(first.toISOString().split("T")[0]);
     setEndDate(last.toISOString().split("T")[0]);
-    const months = [
+    const meses = [
       "Janeiro",
       "Fevereiro",
       "Março",
@@ -122,14 +120,10 @@ export default function TransactionList({
       "Novembro",
       "Dezembro",
     ];
-    toast({
-      title: "Filtros atualizados",
-      description: `Exibindo lançamentos de ${months[now.getMonth()]} de ${y}.`,
-      duration: 2000,
-    });
+    toast(`Exibindo lançamentos de ${meses[now.getMonth()]} de ${y}.`);
   };
 
-  // Update date range when year/month change
+  // Atualiza intervalo quando ano/mês mudam
   useEffect(() => {
     if (yearFilter !== "all" && monthFilter !== "all") {
       const yy = parseInt(yearFilter);
@@ -141,7 +135,7 @@ export default function TransactionList({
     }
   }, [yearFilter, monthFilter]);
 
-  // Deletion dialog
+  // Dialog de exclusão
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [toDelete, setToDelete] = useState<Conta | null>(null);
 
@@ -152,12 +146,7 @@ export default function TransactionList({
   const handleDelete = () => {
     if (toDelete) {
       onDelete(toDelete.id);
-      toast({
-        title: "Lançamento excluído",
-        description: `${toDelete.descricao} removido.`,
-        variant: "default",
-        duration: 2000,
-      });
+      toast(`${toDelete.descricao} removido.`);
       setDeleteDialogOpen(false);
       setToDelete(null);
     }
@@ -165,12 +154,7 @@ export default function TransactionList({
 
   const handleEdit = (tx: Conta) => {
     onEdit(tx);
-    toast({
-      title: "Editando lançamento",
-      description: "Atualize os detalhes no formulário.",
-      variant: "default",
-      duration: 2000,
-    });
+    toast("Atualize os detalhes no formulário.");
   };
 
   const toggleSort = (col: typeof sortColumn) => {
@@ -182,7 +166,7 @@ export default function TransactionList({
     }
   };
 
-  // Available years
+  // Anos disponíveis
   const availableYears = Array.from(
     new Set(
       transactions.map((t) =>
@@ -191,18 +175,17 @@ export default function TransactionList({
     )
   ).sort((a, b) => parseInt(b) - parseInt(a));
 
-  // Filter by type tab
+  // Filtra pelo tipo selecionado na aba
   const filterByTab = (arr: Conta[]) => {
-    if (activeTypeTab === "income")
+    if (activeTypeTab === "A Receber")
       return arr.filter((t) => t.tipo === "A Receber");
-    if (activeTypeTab === "expense")
+    if (activeTypeTab === "A Pagar")
       return arr.filter((t) => t.tipo === "A Pagar");
-    return arr.filter((t) =>
-      typeFilter === "all" ? true : t.tipo === typeFilter
-    );
+    // "Todas"
+    return arr;
   };
 
-  // Combined filters
+  // Filtros combinados
   const filtered = filterByTab(
     transactions
       .filter((t) => t.descricao.toLowerCase().includes(search.toLowerCase()))
@@ -231,7 +214,7 @@ export default function TransactionList({
       })
   );
 
-  // Sort
+  // Ordenação
   const sorted = [...filtered].sort((a, b) => {
     const dir = sortDirection === "asc" ? 1 : -1;
     switch (sortColumn) {
@@ -256,7 +239,7 @@ export default function TransactionList({
     }
   });
 
-  // Totals
+  // Totais
   const totalIn = sorted
     .filter((t) => t.tipo === "A Receber")
     .reduce((s, t) => s + t.valor, 0);
@@ -280,13 +263,13 @@ export default function TransactionList({
       "Nov",
       "Dez",
     ];
-    return m === "all" ? "Todos" : ms[parseInt(m) - 1];
+    return m === "all" ? "Todas" : ms[parseInt(m) - 1];
   };
 
   return (
     <>
       <div className="space-y-4">
-        {/* Header */}
+        {/* Cabeçalho */}
         <div className="flex flex-col md:flex-row justify-between items-center">
           <div className="flex items-center">
             <BookOpen className="h-6 w-6 mr-2 text-primary" />
@@ -294,7 +277,7 @@ export default function TransactionList({
           </div>
         </div>
 
-        {/* Summary cards */}
+        {/* Cartões de resumo */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card className="border-green-200">
             <CardContent className="p-4 flex items-center justify-between">
@@ -349,17 +332,17 @@ export default function TransactionList({
           </Card>
         </div>
 
-        {/* Filters */}
+        {/* Filtros */}
         <div className="flex flex-col md:flex-row justify-between gap-4">
           <Tabs
             value={activeTypeTab}
-            onValueChange={setActiveTypeTab}
+            onValueChange={(value) => setActiveTypeTab(value as FiltroTipo)}
             className="w-full md:w-1/3"
           >
             <TabsList className="grid grid-cols-3">
-              <TabsTrigger value="all">Todos</TabsTrigger>
-              <TabsTrigger value="income">Entradas</TabsTrigger>
-              <TabsTrigger value="expense">Saídas</TabsTrigger>
+              <TabsTrigger value="Todas">Todas</TabsTrigger>
+              <TabsTrigger value="A Receber">Entradas</TabsTrigger>
+              <TabsTrigger value="A Pagar">Saídas</TabsTrigger>
             </TabsList>
           </Tabs>
 
@@ -369,7 +352,7 @@ export default function TransactionList({
                 <SelectValue>{yearFilter}</SelectValue>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="all">Todas</SelectItem>
                 {availableYears.map((y) => (
                   <SelectItem key={y} value={y}>
                     {y}
@@ -386,7 +369,7 @@ export default function TransactionList({
                 <SelectValue>{getMonthName(monthFilter)}</SelectValue>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="all">Todas</SelectItem>
                 {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => {
                   const mm = m.toString().padStart(2, "0");
                   return (
@@ -417,7 +400,7 @@ export default function TransactionList({
           </div>
         </div>
 
-        {/* Period display */}
+        {/* Período exibido */}
         {(yearFilter !== "all" || monthFilter !== "all") && (
           <p className="text-sm text-muted-foreground">
             Período: {yearFilter === "all" ? "Todos anos" : yearFilter}
@@ -425,7 +408,7 @@ export default function TransactionList({
           </p>
         )}
 
-        {/* Table */}
+        {/* Tabela */}
         {sorted.length > 0 ? (
           <Card>
             <CardContent className="p-0 overflow-x-auto">
@@ -538,7 +521,7 @@ export default function TransactionList({
         )}
       </div>
 
-      {/* Delete Confirmation */}
+      {/* Confirmação de exclusão */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
