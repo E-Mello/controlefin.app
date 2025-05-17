@@ -1,3 +1,5 @@
+// Path: components/reports-summary-row.tsx
+
 import { formatCurrency } from "@/lib/utils";
 import { Conta } from "@/types/contas";
 

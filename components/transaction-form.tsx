@@ -2,8 +2,8 @@
 
 "use client";
 import { createConta, updateConta } from "@/actions/contas";
-import { useState, useEffect } from "react";
-import { toast } from "@/components/ui/use-toast";
+import { useState, useEffect, useMemo } from "react";
+import { toast } from "sonner";
 import {
   Card,
   CardContent,
@@ -20,10 +20,9 @@ import DateInput from "./date-input";
 import { useFormStatus } from "react-dom";
 import type { CreateContaRequest, CreateContaResponse } from "@/types/contas";
 
-// Funções de mapeamento para converter os tipos
+// Mapeamento de tipos
 const mapStateToTipo = (state: "income" | "expense"): "A Receber" | "A Pagar" =>
   state === "income" ? "A Receber" : "A Pagar";
-
 const mapTipoToState = (tipo: "A Receber" | "A Pagar"): "income" | "expense" =>
   tipo === "A Receber" ? "income" : "expense";
 
@@ -42,7 +41,7 @@ export default function TransactionForm({
   const [amount, setAmount] = useState("");
   const [formattedAmount, setFormattedAmount] = useState("");
   const [type, setType] = useState<"income" | "expense">("income");
-  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
+  const [date, setDate] = useState("");
   const [errors, setErrors] = useState<{
     description?: string;
     amount?: string;
@@ -50,24 +49,26 @@ export default function TransactionForm({
   }>({});
   const { pending } = useFormStatus();
 
+  // data mínima: hoje no formato YYYY-MM-DD
+  const today = useMemo(() => new Date().toISOString().split("T")[0], []);
+
   useEffect(() => {
     if (editingTransaction) {
       setDescription(editingTransaction.descricao);
       setFormattedAmount(editingTransaction.valor.toString().replace(".", ","));
       setAmount(editingTransaction.valor.toString());
       setType(mapTipoToState(editingTransaction.tipo));
-      setDate(
-        new Date(editingTransaction.data_vencimento).toISOString().split("T")[0]
-      );
+      // extrai apenas YYYY-MM-DD
+      setDate(editingTransaction.data_vencimento.split("T")[0]);
     } else {
       setDescription("");
       setAmount("");
       setFormattedAmount("");
       setType("income");
-      setDate(new Date().toISOString().split("T")[0]);
+      setDate(today);
       setErrors({});
     }
-  }, [editingTransaction]);
+  }, [editingTransaction, today]);
 
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const clean = e.target.value.replace(/[^\d,\.]/g, "");
@@ -88,7 +89,9 @@ export default function TransactionForm({
       newErr.amount = "Informe um valor válido maior que zero";
     }
     if (!date) {
-      newErr.date = "A data é obrigatória";
+      newErr.date = "A data de vencimento é obrigatória";
+    } else if (date < today) {
+      newErr.date = "Data não pode ser anterior a hoje";
     }
     setErrors(newErr);
     return Object.keys(newErr).length === 0;
@@ -97,12 +100,7 @@ export default function TransactionForm({
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!validateForm()) {
-      toast({
-        title: "Erro ao salvar",
-        description: "Por favor, corrija os campos destacados.",
-        variant: "destructive",
-        duration: 2000,
-      });
+      toast("Por favor, corrija os campos destacados.");
       return;
     }
     const payload: CreateContaRequest = {
@@ -115,30 +113,21 @@ export default function TransactionForm({
       const result = editingTransaction
         ? await updateConta(editingTransaction.id, payload)
         : await createConta(payload);
-      toast({
-        title: editingTransaction
-          ? "Lançamento atualizado"
-          : "Lançamento adicionado",
-        description: `${description} ${
+      toast(
+        `${description} ${
           editingTransaction ? "atualizado" : "adicionado"
-        } com sucesso.`,
-        variant: "default",
-        duration: 2000,
-      });
+        } com sucesso.`
+      );
       onAddTransaction(result);
+      // reset
       setDescription("");
       setAmount("");
       setFormattedAmount("");
       setType("income");
-      setDate(new Date().toISOString().split("T")[0]);
+      setDate(today);
       setErrors({});
     } catch {
-      toast({
-        title: "Erro ao salvar",
-        description: "Erro ao criar ou atualizar a conta no banco de dados.",
-        variant: "destructive",
-        duration: 2000,
-      });
+      toast("Erro ao criar ou atualizar a conta no banco de dados.");
     }
   };
 
@@ -177,6 +166,7 @@ export default function TransactionForm({
           onSubmit={handleSubmit}
           className="space-y-4"
         >
+          {/* tipo */}
           <div>
             <Label htmlFor="type">Tipo</Label>
             <RadioGroup
@@ -199,6 +189,8 @@ export default function TransactionForm({
               </div>
             </RadioGroup>
           </div>
+
+          {/* descrição */}
           <div>
             <Label
               htmlFor="description"
@@ -214,6 +206,8 @@ export default function TransactionForm({
               className={errors.description ? "border-red-500" : ""}
             />
           </div>
+
+          {/* valor */}
           <div>
             <Label
               htmlFor="amount"
@@ -238,9 +232,11 @@ export default function TransactionForm({
               Digite o valor usando vírgula como separador decimal.
             </p>
           </div>
+
+          {/* data de vencimento com calendário e regra min */}
           <div>
             <Label htmlFor="date" className={errors.date ? "text-red-500" : ""}>
-              Data {errors.date && `(${errors.date})`}
+              Data de vencimento {errors.date && `(${errors.date})`}
             </Label>
             <DateInput
               id="date"
